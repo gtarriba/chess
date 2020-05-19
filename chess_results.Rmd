@@ -1,5 +1,5 @@
 ---
-title: "chess_data"
+title: "Chess games analysis"
 author: "Gabriel Tarriba"
 date: "5/18/2020"
 output: html_document
@@ -9,32 +9,93 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(dplyr)
 library(reticulate)
+library(ggplot2)
 ```
 
-## Analysis of chess results
+# Analysis of chess results
 
-In this document I analyse a dataset with the results of over 20,000 chess games played on [lichess](https://lichess.org/), one of the most popular platforms to play chess online. The dataset is on [Kaggle](https://www.kaggle.com/datasnaek/chess) and was uploaded by user [Mitchell J](https://www.kaggle.com/datasnaek). 
+In this document I analyse a dataset with the results of over 20,000 chess games played on [lichess](https://lichess.org/), one of the most popular platforms to play chess online. The dataset is on [Kaggle](https://www.kaggle.com/datasnaek/chess) and was uploaded by user [Mitchell J](https://www.kaggle.com/datasnaek). All the analysis is performed in [R](https://www.r-project.org/about.html).
 
 I will perform Exploratory Data Analysis as well as some simple Regression Analysis/Machine Learning to find out:
 
 1. What is in the data 
 2. How large white's advantage is
 3. How rating difference relates to game length (in number of turns)
-3. How the rating difference between the two players predicts whether the game will have a decisive result (i.e. not end in a draw)
+4. How the rating difference between the two players predicts whether the game will have a decisive result (i.e. not end in a draw)
 5. What predicts wether a game will end by checkmate, resignation or time out
 
-```{r cars}
-# Load the dataset and look at its structure
+```{r}
+# Load the dataset and name it df
 df <- read.csv("games.csv")
+```
+
+## 1. What is in the data
+
+Examine the structure of the dataset, the number of observations and the presence of missing values. We see that there are 16 variables and 20,058 observations. The dataset has no missing values, which is great.
+
+```{r, echo=FALSE}
+
+nrow(df)
 str(df)
+lapply(df, function(x) sum(is.na(x)))
+
+```
+## 2. How large white's advantage is
+
+White has the first-mover advantage in chess. But just how significant this really is? How much more does white win compared to black? We see that black wins about 45% of times, and white about 50%. This indicates that a white victory is 4.46 percentage points more likely. However, since black only wins 45% of times, a 4.46 percentage point difference in favor of white means that white is about 9% likelier to win than black!
+
+```{r}
+perc_win <- table(df$winner)/nrow(df)*100
+print(perc_win)
+
+# Percentage point difference in prob. of white win
+perc_win[3] - perc_win[1]
+
+# How much likelier is a white win?
+(perc_win[3] - perc_win[1])/perc_win[3]
 ```
 
-## Including Plots
 
-You can also embed plots, for example:
 
-```{r pressure, echo=FALSE}
-plot(pressure)
+
+## 3. How rating difference relates to game length (in number of turns)
+
+Now we use graphs to inspect the distribution of (1) rating differences, (2) the number of turns in a game (i.e. the sum of both players' moves), and (3) how these two are related. But first we need to construct the variable "rating differences", as the absolute value of the ratings. We see that most games are played between rivals of roughly similar strength, which is unsurprising as this is how lichess' algorithm operates by default. The median rating difference is 173 whereas the median game length is 55 turns. Do people with more similar ratings play longer games?
+
+```{r}
+# Variable of rating differences
+df$diff <- with(df, abs(white_rating - black_rating))
+# Summary stats for the two variables of interest
+summary(df$diff)
+summary(df$turns)
+# Histogram of rating differences
+hist(df$diff, breaks=50)
+# Histogram of game length
+hist(df$turns, breaks=50)
+# Scatterplot of rating difference and turns
+ggplot(df, aes(x=diff, y=turns)) + geom_point(alpha=0.3) # 
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+There seems to be a negative relationship but it's hard to tell because of overplotting. Let's look at games betweens strong rivals first. We try a different approach: let's look only at games between strong players. For this, we create the var "strength" which is the sum of the ratings of both players. Then we repeat the scatterplot but this time only for games where the sum of the players > 4000 (i.e. where players had an average strength of 2000).
+
+```{r}
+df$strength <- with(df, white_rating + black_rating)
+ggplot(df[df$strength > 4000,], aes(x=diff, y=turns)) + geom_point(alpha=0.3) + geom_smooth(method="lm")
+```
+
+Now we see a bit better that games where the rating difference is over 800 points seldom last more than 100 turns, whereas this is very common for games between similarly-rated rivals. But it's still somewhat murky. Another strategy is to turn rating difference into a categorical variable and plot a bar chart. Let's try this approach.
+
+```{r}
+# Create categorical variable of rating difference as diffc
+df$diffc <- cut(df$diff, 
+                   breaks=c(-Inf, 400, 800, Inf), 
+                   labels=c("Less than 400","400 to 800","Over 800"))
+
+# Group by diffc and estimate mean turns for each category of diffc, then plot 
+df %>% 
+  group_by(diffc) %>% 
+  summarize(avg_turn = mean(turns)) %>% 
+  ggplot(aes(x=diffc, y=avg_turn)) + geom_col() + geom_text(aes(label=round(avg_turn, digits=1)), position=position_dodge(width=0.9), vjust=-0.25)
+```
+
+Now we see much more clearly that games between similarly strong rivals are longer than games between unequal rivals.
