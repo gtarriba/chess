@@ -1,0 +1,40 @@
+---
+title: "chess_data"
+author: "Gabriel Tarriba"
+date: "5/18/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(reticulate)
+```
+
+## Analysis of chess results
+
+In this document I analyse a dataset with the results of over 20,000 chess games played on [lichess](https://lichess.org/), one of the most popular platforms to play chess online. The dataset is on [Kaggle](https://www.kaggle.com/datasnaek/chess) and was uploaded by user [Mitchell J](https://www.kaggle.com/datasnaek). 
+
+I will perform Exploratory Data Analysis as well as some simple Regression Analysis/Machine Learning to find out:
+
+1. What is in the data 
+2. How large white's advantage is
+3. How rating difference relates to game length (in number of turns)
+3. How the rating difference between the two players predicts whether the game will have a decisive result (i.e. not end in a draw)
+5. What predicts wether a game will end by checkmate, resignation or time out
+
+```{r cars}
+# Load the dataset and look at its structure
+df <- read.csv("games.csv")
+str(df)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
